@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateGoodUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UserService {
@@ -49,7 +49,7 @@ export class UserService {
     };
   }
 
-  async updateUser(id: number, dto: UpdateUserDto) {
+  async updateGoodUser(id: number, dto: UpdateGoodUserDto) {
     const updateUser = await this.prisma.users.update({
       where: { id: id },
       data: {
@@ -61,7 +61,7 @@ export class UserService {
     return user;
   }
 
-  async delterUser(id: number) {
+  async delterBadUser(id: number) {
     const deltedUser = await this.prisma.users.delete({
       where: { id: id },
     });

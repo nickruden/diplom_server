@@ -1,9 +1,9 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from 'src/config/jwt-auth.guard';
-import { CurrentUser } from 'src/user/decorator/current-user.decorator';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { CurrentUser } from 'src/coolUser/decorator/current-user.decorator';
 
 @Controller('events')
 export class EventsController {

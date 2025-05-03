@@ -1,16 +1,16 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, HttpCode } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from 'src/config/jwt-auth.guard';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateGoodUserDto } from './dto/update-user.dto';
 import { CurrentUser } from './decorator/current-user.decorator';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile/:id')
-  getInfoById(@Param('id') id: string) {
+  getCoolUserInfoById(@Param('id') id: string) {
     return this.userService.getInfoById(+id);
   }
 
@@ -34,14 +34,16 @@ export class UserController {
     return this.userService.userUnfollow(+id, +user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch('update/:id')
-  updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.updateUser(+id, updateUserDto);
+  updateGoodUser(@Param('id') id: string, @Body() updateUserDto: UpdateGoodUserDto) {
+    return this.userService.updateGoodUser(+id, updateUserDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete('delete/:id')
-  delterUser(@Param('id') id: string) {
-    return this.userService.delterUser(+id);
+  delterBadUser(@Param('id') id: string) {
+    return this.userService.delterBadUser(+id);
   }
 
 

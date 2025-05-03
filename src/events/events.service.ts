@@ -25,6 +25,7 @@ export class EventsService {
           select: {
             organizerName: true,
             avatar: true,
+            id: true,
           }
         },
         tickets: {
@@ -35,7 +36,6 @@ export class EventsService {
         },
       },
     })
-  
    
     return events;
   }
@@ -63,6 +63,7 @@ export class EventsService {
           select: {
             organizerName: true,
             avatar: true,
+            id: true,
           }
         },
         tickets: {
@@ -74,6 +75,14 @@ export class EventsService {
           }
         }
       }
+    });
+  
+    if (!event) return null;
+  
+    const followersCount = await this.prisma.userFollower.count({
+      where: {
+        userId: event.organizer.id,
+      },
     });
   
     const totalTickets = await this.prisma.ticket.aggregate({
@@ -88,8 +97,12 @@ export class EventsService {
     return {
       ...event,
       totalTicketsCount: totalTickets._sum.count || 0,
+      organizer: {
+        ...event.organizer,
+        followersCount,
+      },
     };
-  }
+  }  
 
   async getEventsByCreator(creatorId: number, filter?: 'upcoming' | 'past') {
     const now = new Date();
@@ -167,6 +180,13 @@ export class EventsService {
             select: {
               imageUrl: true,
               isMain: true
+            }
+          },
+          organizer: {
+            select: {
+              organizerName: true,
+              avatar: true,
+              id: true,
             }
           },
           category: {
@@ -297,11 +317,9 @@ export class EventsService {
   } 
 
   async deleteImage(publicId: string) {
-    console.log(publicId)
     return this.prisma.eventImage.delete({
       where: { publicId },
     });
   }
 
-  
   }

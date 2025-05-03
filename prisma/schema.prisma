@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -18,8 +18,8 @@ model Users {
   organizerName      String               @unique(map: "organizer_name_UNIQUE") @map("organizer_name") @db.VarChar(100)
   organizerDesc      String?              @map("organizer_desc") @db.VarChar(800)
   organizerMedias    String?              @map("organizer_medias") @db.VarChar(500)
-  createdAt          DateTime             @default(now()) @map("created_At") @db.DateTime(0)
-  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_At") @db.DateTime(0)
+  createdAt          DateTime             @default(now()) @map("created_At")  
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_At")  
   organizedEvents    Events[]
   favoriteEvents     FavoriteEvents[]    
   following          UserFollower[]       @relation("following")
@@ -43,14 +43,14 @@ model UserFollower {
 model Events {
   id              Int               @unique(map: "event_id_UNIQUE") @default(autoincrement()) @map("event_id")
   name            String            @map("event_name") @db.VarChar(100)
-  description     String            @db.LongText
-  endTime         DateTime          @map("end_time") @db.DateTime(0)
-  startTime       DateTime          @map("start_time") @db.DateTime(0)
+  description     String             
+  endTime         DateTime          @map("end_time")  
+  startTime       DateTime          @map("start_time")  
   location        String            @db.VarChar(150)
   status          String            @db.VarChar(50)
-  isPrime         Int               @map("is_prime") @db.TinyInt
-  refundDate      DateTime?         @map("refund_date") @db.DateTime(0)
-  isAutoRefund      Int             @map("auto_refund") @db.TinyInt @default(0)
+  isPrime         Int               @map("is_prime") 
+  refundDate      DateTime?         @map("refund_date")  
+  isAutoRefund      Int             @map("auto_refund")  @default(0)
   createdAt       DateTime          @default(now()) @map("created_ad") @db.Timestamp(0)
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
   categoryId      Int               @map("categories_category_id")
@@ -81,7 +81,7 @@ model EventImage {
   id       Int    @unique(map: "event_image_id_UNIQUE") @default(autoincrement()) @map("event_image_id")
   imageUrl String @map("image_url") @db.VarChar(512)
   publicId String @unique @map("image_publicId") @db.VarChar(200)
-  isMain   Int    @map("is_main") @db.TinyInt
+  isMain   Int    @map("is_main")  
   eventId  Int    @map("events_event_id")
   event    Events @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_event_images_events1")
 
@@ -95,8 +95,8 @@ model EventSchedule {
   topic       String   @db.VarChar(400)
   speakerName String   @map("speaker_name") @db.VarChar(200)
   speakerDesc String   @map("speaker_desc") @db.VarChar(200)
-  startTime   DateTime @map("start_time") @db.DateTime(0)
-  endTime     DateTime @map("end_time") @db.DateTime(0)
+  startTime   DateTime @map("start_time")  
+  endTime     DateTime @map("end_time")  
   description String?  @db.VarChar(500)
   eventId     Int      @map("events_event_id")
   event       Events   @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_event_schedule_events1")
@@ -111,10 +111,10 @@ model Ticket {
   name        String           @map("ticket_name") @db.VarChar(100)
   description String?          @map("ticket_description") @db.VarChar(200)
   price       Int
-  salesStart  DateTime?        @map("sales_start") @db.DateTime(0)
-  salesEnd    DateTime?        @map("sales_end") @db.DateTime(0)
+  salesStart  DateTime?        @map("sales_start")  
+  salesEnd    DateTime?        @map("sales_end")  
   count       Int
-  isSoldOut   Int              @map("is_soldout") @db.TinyInt
+  isSoldOut   Int              @map("is_soldout")  
   eventId     Int              @map("events_event_id")
   purchases   TicketPurchase[]
   event       Events           @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tickets_events1")
@@ -126,9 +126,10 @@ model Ticket {
 
 model TicketPurchase {
   id           Int      @unique(map: "purchase_id_UNIQUE") @default(autoincrement()) @map("purchase_id")
-  purchaseTime DateTime @default(now()) @map("purchase_time") @db.DateTime(0)
+  purchaseTime DateTime @default(now()) @map("purchase_time")  
   userId       Int      @map("users_user_id")
   ticketId     Int      @map("tickets_ticket_id")
+  ticketsCount Int @map("tickets_count")
   ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_tickets1")
   user         Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_users1")
 
@@ -157,8 +158,8 @@ model UserNotification {
   title          String   @db.VarChar(200)
   message        String?  @db.VarChar(500)
   type           String   @db.VarChar(100)
-  isRead         Int      @map("is_read") @db.TinyInt
-  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  isRead         Int      @map("is_read")  
+  createdAt      DateTime @default(now()) @map("created_at")  
   userId         String   @map("user_id") @db.VarChar(45)
   user           Users    @relation(fields: [userId], references: [email], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_notifications_users1")
 

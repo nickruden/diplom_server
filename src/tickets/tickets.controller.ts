@@ -20,13 +20,21 @@ export class TicketsController {
     return this.ticketsService.createTicket(+eventId, dto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':ticketId')
   updateTicket(@Param('ticketId') ticketId: string, @Body() dto: UpdateTicketDto) {
     return this.ticketsService.updateTicket(+ticketId, dto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':ticketId')
   deleteTicket(@Param('ticketId') ticketId: string) {
     return this.ticketsService.deleteTicket(+ticketId);
+  }
+
+  @HttpCode(200)
+  @Post('buy/ticket')
+  async buyTickets(@Body() body: { idBuyer: string; tickets: { idTicket: string; count: number }[] }) {
+    return this.ticketsService.buyTickets(body.idBuyer, body.tickets);
   }
 }

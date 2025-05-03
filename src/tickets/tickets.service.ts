@@ -51,7 +51,7 @@ export class TicketsService {
   }
 
   async createTicket(eventId: number, dto: CreateTicketDto) {
-    return this.prisma.ticket.create({
+    return await this.prisma.ticket.create({
       data: {
         ...dto,
         isSoldOut: 0,
@@ -74,4 +74,19 @@ export class TicketsService {
       where: { id: ticketId },
     });
   }
+
+  async buyTickets(idBuyer: string, tickets: { idTicket: string; count: number }[]) {
+    const result = await Promise.all(
+      tickets.map(({ idTicket, count }) =>
+        this.prisma.ticketPurchase.create({
+          data: {
+            userId: +idBuyer,
+            ticketId: +idTicket,
+            ticketsCount: count,
+          },
+        })
+      )
+    );
+  }
+  
 }
