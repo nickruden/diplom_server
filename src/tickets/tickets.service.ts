@@ -70,7 +70,7 @@ export class TicketsService {
   }
 
   async deleteTicket(ticketId: number) {
-    return this.prisma.ticket.delete({
+    await this.prisma.ticket.delete({
       where: { id: ticketId },
     });
   }

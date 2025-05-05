@@ -230,5 +230,17 @@ export class UserService {
   
     // Сортируем по количеству подписчиков (по убыванию)
     return usersWithCounts.sort((a, b) => b.followersCount - a.followersCount);
-  }  
+  }
+
+  async getMyFavoriteEvents(userId: number) {
+    const favorites = await this.prisma.favoriteEvents.findMany({
+      where: { userId },
+      select: {
+        eventId: true,
+      },
+    });
+
+    return favorites.map(f => f.eventId);
+  }
+
 }

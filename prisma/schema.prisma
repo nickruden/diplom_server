@@ -140,7 +140,7 @@ model TicketPurchase {
 }
 
 model FavoriteEvents {
-  favoriteRecordId Int      @unique(map: "record_id_UNIQUE") @map("favoriteRecord_id")
+  favoriteRecordId Int      @unique(map: "record_id_UNIQUE") @default(autoincrement()) @map("favoriteRecord_id")
   userId           Int      @map("users_user_id")
   eventId          Int      @map("events_event_id")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(0)

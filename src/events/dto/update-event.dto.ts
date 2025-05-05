@@ -67,6 +67,6 @@ import {
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => EventImageDto)
-    images: EventImageDto[];
+    images?: EventImageDto[];
   }
   

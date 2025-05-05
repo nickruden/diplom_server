@@ -15,8 +15,9 @@ export class EventsController {
   }
 
   @Get(':id')
-  getEventById(@Param('id') id: string) {
-    return this.eventsService.getEventById(+id);
+  async getEventById(@Param('id') id: string) {
+    console.log(2)
+    return await this.eventsService.getEventById(+id);
   }
 
   @Get('/creator/:id')
@@ -43,6 +44,7 @@ export class EventsController {
     @UseGuards(JwtAuthGuard)
     @Patch('/edit/:id')
     updateEvent(@Param('id') id: string, @Body() updateEventDto: UpdateEventDto) {
+      console.log(id, updateEventDto)
       return this.eventsService.updateEvent(+id, updateEventDto);
     }
 
@@ -56,6 +58,25 @@ export class EventsController {
   @Delete('image/delete/:publicId')
   async deleteEventImage(@Param('publicId') publicId: string) {
     return this.eventsService.deleteImage(publicId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(200)
+  @Post('set-favorite/:id')
+  setFavoriteEvent(@Param('id') id: number, @CurrentUser() user: any) {
+    return this.eventsService.userSetFavoriteEvent(+id, +user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('unset-favorite/:id')
+  unsetFavoriteEvent(@Param('id') id: number, @CurrentUser() user: any) {
+    return this.eventsService.userUnsetFavoriteEvent(+id, +user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('favorite-events/info')
+  getMyFavoriteEventsFull(@CurrentUser() user: any) {
+    return this.eventsService.getMyFavoriteEventsFull(+user.id);
   }
 
 }

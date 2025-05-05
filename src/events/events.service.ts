@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -12,7 +12,8 @@ export class EventsService {
 
     const events = this.prisma.events.findMany({
       where: {
-        endTime: {gte: now}
+        endTime: {gte: now},
+        status: "Опубликовано",
       },
       include: {
         images: {
@@ -41,6 +42,7 @@ export class EventsService {
   }
 
   async getEventById(eventId: number) {
+    console.log(1)
     const event = await this.prisma.events.findUnique({
       where: {
         id: eventId,
@@ -108,7 +110,7 @@ export class EventsService {
     const now = new Date();
   
     const whereParams: any = {
-      organizerId: creatorId
+      organizerId: creatorId,
     };
   
     if (filter === 'upcoming') {
@@ -174,6 +176,7 @@ export class EventsService {
           category: {
             slug: slug
           },
+          status: "Опубликовано",
         },
         include: {
           images: {
@@ -275,11 +278,11 @@ export class EventsService {
       data: updateData,
     });
   
-    if (dto.images.length !== 0) {
+    if (dto.images?.length) {
       await this.prisma.eventImage.deleteMany({
         where: { eventId },
-      })
-
+      });
+    
       const imagesData = dto.images.map((img) => ({
         imageUrl: img.imageUrl,
         publicId: img.publicId,
@@ -320,6 +323,76 @@ export class EventsService {
     return this.prisma.eventImage.delete({
       where: { publicId },
     });
+  }
+  
+  async userSetFavoriteEvent(eventId: number, userId: number) {
+    const favorite = await this.prisma.favoriteEvents.create({
+      data: {
+        userId,
+        eventId,
+      },
+      select: {
+        eventId: true,
+      },
+    });
+  
+    return favorite.eventId;
+  }
+  
+  async userUnsetFavoriteEvent(eventId: number, userId: number) {
+    await this.prisma.favoriteEvents.deleteMany({
+      where: {
+        userId,
+        eventId,
+      },
+    });
+  
+    return eventId;
+  }
+  
+  async getMyFavoriteEventsFull(userId: number) {
+    const favoriteRecords = await this.prisma.favoriteEvents.findMany({
+      where: { userId },
+      select: {
+        eventId: true,
+      },
+    });
+  
+    const eventIds = favoriteRecords.map(f => f.eventId);
+  
+    if (eventIds.length === 0) {
+      throw new HttpException({
+        statusCode: HttpStatus.NOT_FOUND,
+        message: 'NO_FAVORITE_EVENTS',
+      }, HttpStatus.NOT_FOUND);
+    }
+  
+    const events = await this.prisma.events.findMany({
+      where: { id: { in: eventIds } },
+      include: {
+        images: {
+          select: {
+            imageUrl: true,
+            isMain: true
+          }
+        },
+        organizer: {
+          select: {
+            organizerName: true,
+            avatar: true,
+            id: true,
+          }
+        },
+        tickets: {
+          select: {
+            price: true,
+            isSoldOut: true,
+          }
+        },
+      },
+    });
+  
+    return events;
   }
 
   }

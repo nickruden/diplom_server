@@ -6,9 +6,10 @@ import { EventsModule } from './events/events.module';
 import { AuthModule } from './auth/auth.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { coolUserModule } from './coolUser/user.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({isGlobal: true}), CategoriesModule, EventsModule, coolUserModule, AuthModule, TicketsModule],
+  imports: [ConfigModule.forRoot({isGlobal: true}), CategoriesModule, EventsModule, coolUserModule, AuthModule, TicketsModule, PaymentModule],
   providers: [PrismaService],
 })
 

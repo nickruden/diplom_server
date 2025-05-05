@@ -46,7 +46,6 @@ export class UserController {
     return this.userService.delterBadUser(+id);
   }
 
-
   @Get('creators')
   getCreatorsInfoById() {
     return this.userService.getCreatorsInfo();
@@ -63,4 +62,10 @@ export class UserController {
     return this.userService.getFollowingCreatorsInfo(+user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('my-favorite-events')
+  async getMyFavoriteEvents(@CurrentUser() user: any) {
+    const userId = user.id;
+    return await this.userService.getMyFavoriteEvents(+userId);
+  }
 }
