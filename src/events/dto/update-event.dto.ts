@@ -8,6 +8,7 @@ import {
     IsArray,
     ValidateNested,
     IsOptional,
+    IsNumber,
   } from 'class-validator';
   import { EventImageDto } from './create-event-image.dto';
   import { Type } from 'class-transformer';
@@ -38,6 +39,10 @@ import {
     @IsOptional()
     @IsString()
     status?: string;
+
+    @IsOptional()
+    @IsNumber()
+    viewsEvent?: number;
   
     @IsOptional()
     @IsInt()

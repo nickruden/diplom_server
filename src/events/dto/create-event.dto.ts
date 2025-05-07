@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsDateString, MaxLength, Min, Max, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsInt, IsDateString, MaxLength, Min, Max, IsArray, ValidateNested, IsNumber } from 'class-validator';
 import { EventImageDto } from './create-event-image.dto';
 import { Type } from 'class-transformer';
 
@@ -22,6 +22,9 @@ export class CreateEventDto {
 
   @IsString()
   status: string;
+
+  @IsNumber()
+  viewsEvent: number;
 
   @IsInt()
   @Min(0)

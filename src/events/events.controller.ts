@@ -7,7 +7,7 @@ import { CurrentUser } from 'src/coolUser/decorator/current-user.decorator';
 
 @Controller('events')
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(private readonly eventsService: EventsService) { }
 
   @Get()
   getAllEvents() {
@@ -16,7 +16,6 @@ export class EventsController {
 
   @Get(':id')
   async getEventById(@Param('id') id: string) {
-    console.log(2)
     return await this.eventsService.getEventById(+id);
   }
 
@@ -37,22 +36,20 @@ export class EventsController {
   @HttpCode(200)
   @Post('/create')
   createEvent(@Body() eventData: CreateEventDto, @CurrentUser() user: any) {
-    console.log(user.id, eventData)
     return this.eventsService.createEvent(eventData, +user.id);
   }
 
-    @UseGuards(JwtAuthGuard)
-    @Patch('/edit/:id')
-    updateEvent(@Param('id') id: string, @Body() updateEventDto: UpdateEventDto) {
-      console.log(id, updateEventDto)
-      return this.eventsService.updateEvent(+id, updateEventDto);
-    }
+  @UseGuards(JwtAuthGuard)
+  @Patch('/edit/:id')
+  updateEvent(@Param('id') id: string, @Body() updateEventDto: UpdateEventDto) {
+    return this.eventsService.updateEvent(+id, updateEventDto);
+  }
 
-    @UseGuards(JwtAuthGuard)
-    @Delete('delete/:id')
-    delterUser(@Param('id') id: string, @CurrentUser() user: any) {
-      return this.eventsService.delterEvent(+id, +user.id);
-    }
+  @UseGuards(JwtAuthGuard)
+  @Delete('delete/:id')
+  delterUser(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.eventsService.deleteEvent(+id, +user.id);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Delete('image/delete/:publicId')
@@ -77,6 +74,12 @@ export class EventsController {
   @Get('favorite-events/info')
   getMyFavoriteEventsFull(@CurrentUser() user: any) {
     return this.eventsService.getMyFavoriteEventsFull(+user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('/puchases/:id')
+  async getPurchaseByEvent(@Param('id') id: string) {
+    return await this.eventsService.getPurchaseByEvent(+id);
   }
 
 }

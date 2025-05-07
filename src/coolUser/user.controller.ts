@@ -68,4 +68,11 @@ export class UserController {
     const userId = user.id;
     return await this.userService.getMyFavoriteEvents(+userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my-tickets')
+  async getUserTickets(@CurrentUser() user: any) {
+    const userId = user.id;
+    return this.userService.getUserTickets(+userId);
+  }
 }

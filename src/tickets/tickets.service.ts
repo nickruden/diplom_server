@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { PrismaService } from 'src/prisma.service';
@@ -16,7 +16,7 @@ export class TicketsService {
     });
 
     if (tickets.length === 0) {
-      throw new NotFoundException('Билеты для указанного мероприятия не найдены');
+      return [];
     }
   
     const totalTickets = await this.prisma.ticket.aggregate({
@@ -54,7 +54,7 @@ export class TicketsService {
     return await this.prisma.ticket.create({
       data: {
         ...dto,
-        isSoldOut: 0,
+        isSoldOut: false,
         event: {
           connect: { id: eventId },
         },
@@ -70,23 +70,31 @@ export class TicketsService {
   }
 
   async deleteTicket(ticketId: number) {
+    // Проверяем, есть ли покупки этого билета
+    const purchasesCount = await this.prisma.ticketPurchase.count({
+      where: { ticketId }
+    });
+  
+    if (purchasesCount > 0) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.CONFLICT, // 409 Conflict
+          message: 'Невозможно удалить билет: существуют покупки',
+          error: 'TICKET_HAS_PURCHASES',
+          details: {
+            purchasesCount,
+            ticketId
+          }
+        },
+        HttpStatus.CONFLICT
+      );
+    }
+  
+    // Если покупок нет - удаляем билет
     await this.prisma.ticket.delete({
       where: { id: ticketId },
     });
-  }
-
-  async buyTickets(idBuyer: string, tickets: { idTicket: string; count: number }[]) {
-    const result = await Promise.all(
-      tickets.map(({ idTicket, count }) =>
-        this.prisma.ticketPurchase.create({
-          data: {
-            userId: +idBuyer,
-            ticketId: +idTicket,
-            ticketsCount: count,
-          },
-        })
-      )
-    );
-  }
   
+    return { success: true };
+  }
 }

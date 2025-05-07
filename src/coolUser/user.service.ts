@@ -159,6 +159,10 @@ export class UserService {
         userId: true,
       },
     });
+
+    if (followings.length === 0) {
+      return [];
+    }
   
     return followings.map(f => f.userId);
   }
@@ -195,6 +199,10 @@ export class UserService {
     });
   
     const organizerIds = followingOrganizers.map(follow => follow.userId);
+
+    if (organizerIds.length === 0) {
+      return [];
+    }
   
     const users = await this.prisma.users.findMany({
       where: { id: { in: organizerIds } },
@@ -240,7 +248,57 @@ export class UserService {
       },
     });
 
+    if (favorites.length === 0) {
+      return [];
+    }
+
     return favorites.map(f => f.eventId);
   }
 
+  async getUserTickets(userId: number) {
+    const purchases = await this.prisma.ticketPurchase.findMany({
+      where: { userId },
+      include: {
+        ticket: {
+          include: {
+            event: {
+              include: {
+                images: {
+                  where: { isMain: 1 },
+                },
+              },
+            }
+          },
+        },
+      },
+    });
+
+    if (purchases.length === 0) {
+      return [];
+    }
+
+    const result = purchases.map((purchase) => ({
+      purchaseId: purchase.id,
+      purchaseTime: purchase.purchaseTime,
+      ticketInfo: {
+        name: purchase.ticket.name,
+        description: purchase.ticket.description,
+        price: purchase.ticket.price,
+      },
+      eventInfo: {
+        id: purchase.ticket.event.id,
+        name: purchase.ticket.event.name,
+        image: purchase.ticket.event.images[0].imageUrl,
+        startTime: purchase.ticket.event.startTime,
+        location: purchase.ticket.event.location,
+        refundDate: purchase.ticket.event.refundDate 
+        ? (purchase.ticket.event.refundDate <= purchase.ticket.event.createdAt 
+          ? false 
+          : purchase.ticket.event.refundDate)
+        : false
+      },
+    }));
+
+    return result;
+  }
 }

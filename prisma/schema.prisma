@@ -49,12 +49,14 @@ model Events {
   location        String            @db.VarChar(150)
   status          String            @db.VarChar(50)
   isPrime         Int               @map("is_prime") 
-  refundDate      DateTime?         @map("refund_date")  
+  refundDate      DateTime?         @map("refund_date")
   isAutoRefund      Int             @map("auto_refund")  @default(0)
   createdAt       DateTime          @default(now()) @map("created_ad") @db.Timestamp(0)
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
   categoryId      Int               @map("categories_category_id")
   organizerId     Int               @map("users_user_id")
+  revenue Decimal @default(0.0)
+  viewsEvent Int? @map("event_views")
   images          EventImage[]
   schedules       EventSchedule[]
   category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_events_categories1")
@@ -114,7 +116,7 @@ model Ticket {
   salesStart  DateTime?        @map("sales_start")  
   salesEnd    DateTime?        @map("sales_end")  
   count       Int
-  isSoldOut   Int              @map("is_soldout")  
+  isSoldOut   Boolean              @map("is_soldout")  
   eventId     Int              @map("events_event_id")
   purchases   TicketPurchase[]
   event       Events           @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tickets_events1")
@@ -129,7 +131,6 @@ model TicketPurchase {
   purchaseTime DateTime @default(now()) @map("purchase_time")  
   userId       Int      @map("users_user_id")
   ticketId     Int      @map("tickets_ticket_id")
-  ticketsCount Int @map("tickets_count")
   ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_tickets1")
   user         Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_users1")
 

@@ -42,7 +42,6 @@ export class EventsService {
   }
 
   async getEventById(eventId: number) {
-    console.log(1)
     const event = await this.prisma.events.findUnique({
       where: {
         id: eventId,
@@ -81,6 +80,22 @@ export class EventsService {
   
     if (!event) return null;
   
+    // Получаем количество проданных билетов для каждого типа билета
+    const ticketsWithSales = await Promise.all(
+      event.tickets.map(async (ticket) => {
+        const soldCount = await this.prisma.ticketPurchase.count({
+          where: {
+            ticketId: ticket.id,
+          },
+        });
+        return {
+          ...ticket,
+          soldCount,
+          availableCount: ticket.count - soldCount,
+        };
+      })
+    );
+  
     const followersCount = await this.prisma.userFollower.count({
       where: {
         userId: event.organizer.id,
@@ -96,15 +111,32 @@ export class EventsService {
       },
     });
   
+    // Общее количество проданных билетов для всего события
+    const totalSoldTickets = await this.prisma.ticketPurchase.count({
+      where: {
+        ticket: {
+          eventId: eventId,
+        },
+      },
+    });
+  
     return {
       ...event,
+      refundDate: event.refundDate 
+        ? (event.refundDate <= event.createdAt 
+          ? false 
+          : event.refundDate)
+        : false,
       totalTicketsCount: totalTickets._sum.count || 0,
+      totalSoldTickets,
+      availableTicketsCount: (totalTickets._sum.count || 0) - totalSoldTickets,
+      tickets: ticketsWithSales,
       organizer: {
         ...event.organizer,
         followersCount,
       },
     };
-  }  
+  }
 
   async getEventsByCreator(creatorId: number, filter?: 'upcoming' | 'past') {
     const now = new Date();
@@ -219,8 +251,8 @@ export class EventsService {
         endTime: new Date(dto.endTime),
         location: dto.location,
         status: dto.status || 'Черновик',
+        viewsEvent: dto.viewsEvent || 0,
         isPrime: dto.isPrime || 0,
-        refundDate: new Date(),
         categoryId: dto.categoryId,
         organizerId: userId,
       },
@@ -248,7 +280,6 @@ export class EventsService {
   }
 
   async updateEvent(eventId: number, dto: UpdateEventDto) {
-    console.log('пришло при публикации', dto)
     // Проверка существования события и принадлежности пользователю
     const existingEvent = await this.prisma.events.findUnique({
       where: { id: eventId },
@@ -267,6 +298,7 @@ export class EventsService {
     if (dto.endTime) updateData.endTime = new Date(dto.endTime);
     if (dto.location) updateData.location = dto.location;
     if (dto.status) updateData.status = dto.status;
+    if (dto.viewsEvent) updateData.viewsEvent = dto.viewsEvent;
     if (typeof dto.isPrime === 'boolean') updateData.isPrime = +dto.isPrime;
     if (dto.refundDate) updateData.refundDate = new Date(dto.refundDate);
     if (typeof dto.isAutoRefund) updateData.isAutoRefund = dto.isAutoRefund;
@@ -298,15 +330,39 @@ export class EventsService {
     return { updated: true, eventId };
   }
   
-  async delterEvent(eventId: number, userId: number) {
-    // Удаляем связанные данные
-    await this.prisma.eventImage.deleteMany({ where: { eventId } });
-    await this.prisma.eventSchedule.deleteMany({ where: { eventId } });
-    await this.prisma.ticket.deleteMany({ where: { eventId } });
+  async deleteEvent(eventId: number, userId: number) {
+    // Проверяем есть ли купленные билеты у этого события
+    const purchasedTicketsCount = await this.prisma.ticketPurchase.count({
+      where: {
+        ticket: {
+          eventId: eventId
+        }
+      }
+    });
   
-    // Удаляем само событие
-    await this.prisma.events.delete({
-      where: { id: eventId },
+    if (purchasedTicketsCount > 0) {
+      throw {
+        statusCode: 409, // Conflict
+        message: "Невозможно удалить событие: существуют купленные билеты",
+        error: "EVENT_HAS_PURCHASES",
+        details: {
+          purchasedTicketsCount,
+          eventId
+        }
+      };
+    }
+  
+    // Если купленных билетов нет - удаляем событие
+    await this.prisma.$transaction(async (tx) => {
+      // Удаляем связанные данные
+      await tx.eventImage.deleteMany({ where: { eventId } });
+      await tx.eventSchedule.deleteMany({ where: { eventId } });
+      await tx.ticket.deleteMany({ where: { eventId } });
+    
+      // Удаляем само событие
+      await tx.events.delete({
+        where: { id: eventId },
+      });
     });
   
     // Считаем оставшееся количество событий у пользователя
@@ -317,7 +373,7 @@ export class EventsService {
     return {
       eventCount: remainingEventsCount,
     };
-  } 
+  }
 
   async deleteImage(publicId: string) {
     return this.prisma.eventImage.delete({
@@ -361,10 +417,7 @@ export class EventsService {
     const eventIds = favoriteRecords.map(f => f.eventId);
   
     if (eventIds.length === 0) {
-      throw new HttpException({
-        statusCode: HttpStatus.NOT_FOUND,
-        message: 'NO_FAVORITE_EVENTS',
-      }, HttpStatus.NOT_FOUND);
+      return [];
     }
   
     const events = await this.prisma.events.findMany({
@@ -395,4 +448,40 @@ export class EventsService {
     return events;
   }
 
+  async getPurchaseByEvent(eventId: number) {
+    const purchases = await this.prisma.ticketPurchase.findMany({
+      where: {
+        ticket: {
+          eventId: eventId,
+        },
+      },
+      include: {
+        ticket: {
+          select: {
+            price: true,
+            name: true,
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          }
+        }
+      },
+      orderBy: {
+        purchaseTime: 'desc',
+      },
+    });
+
+    if (purchases.length === 0) {
+      console.log(1)
+      return [];
+    }
+
+    return purchases;
   }
+
+}

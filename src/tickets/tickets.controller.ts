@@ -3,6 +3,7 @@ import { TicketsService } from './tickets.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { JwtAuthGuard } from 'src/config/jwt-auth.guard';
+import { CurrentUser } from 'src/coolUser/decorator/current-user.decorator';
 
 @Controller('tickets')
 export class TicketsController {
@@ -30,11 +31,5 @@ export class TicketsController {
   @Delete(':ticketId')
   deleteTicket(@Param('ticketId') ticketId: string) {
     return this.ticketsService.deleteTicket(+ticketId);
-  }
-
-  @HttpCode(200)
-  @Post('buy/ticket')
-  async buyTickets(@Body() body: { idBuyer: string; tickets: { idTicket: string; count: number }[] }) {
-    return this.ticketsService.buyTickets(body.idBuyer, body.tickets);
   }
 }
