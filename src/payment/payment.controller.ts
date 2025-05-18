@@ -27,7 +27,7 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard)
   @Post('confirm')
   @HttpCode(200)
-  async confirmPayment(@Body() body: { idBuyer: number; tickets: { idTicket: number; count: number }[] }) {
+  async confirmPayment(@Body() body: { idBuyer: number; tickets: { idTicket: number; count: number; price: number }[] }) {
     return this.paymentService.confirmTickets(body.idBuyer, body.tickets);
   }
 

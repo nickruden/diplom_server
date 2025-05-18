@@ -23,6 +23,7 @@ model Users {
   organizedEvents    Events[]
   favoriteEvents     FavoriteEvents[]    
   following          UserFollower[]       @relation("following")
+  followers          UserFollower[] @relation("followers")
   purchases          TicketPurchase[]
   userNotifications  UserNotification[]   
 
@@ -35,7 +36,8 @@ model UserFollower {
   followerId Int      @map("follower_id")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
   user       Users    @relation("following", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_followers_user_users1")
-
+  follower   Users @relation("followers", fields: [followerId], references: [id])
+  
   @@index([userId], map: "fk_followers_user_users1_idx")
   @@map("followers_user")
 }
@@ -47,6 +49,7 @@ model Events {
   endTime         DateTime          @map("end_time")  
   startTime       DateTime          @map("start_time")  
   location        String            @db.VarChar(150)
+  onlineInfo String? @map("online_info")
   status          String            @db.VarChar(50)
   isPrime         Int               @map("is_prime") 
   refundDate      DateTime?         @map("refund_date")
@@ -57,6 +60,7 @@ model Events {
   organizerId     Int               @map("users_user_id")
   revenue Decimal @default(0.0)
   viewsEvent Int? @map("event_views")
+  notifications UserNotification[]
   images          EventImage[]
   schedules       EventSchedule[]
   category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_events_categories1")
@@ -131,6 +135,7 @@ model TicketPurchase {
   purchaseTime DateTime @default(now()) @map("purchase_time")  
   userId       Int      @map("users_user_id")
   ticketId     Int      @map("tickets_ticket_id")
+  price Int 
   ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_tickets1")
   user         Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_users1")
 
@@ -161,8 +166,10 @@ model UserNotification {
   type           String   @db.VarChar(100)
   isRead         Int      @map("is_read")  
   createdAt      DateTime @default(now()) @map("created_at")  
-  userId         String   @map("user_id") @db.VarChar(45)
-  user           Users    @relation(fields: [userId], references: [email], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_notifications_users1")
+  eventId   Int?
+  userId         Int   @map("user_id")
+  event     Events?   @relation(fields: [eventId], references: [id])
+  user           Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_notifications_users1")
 
   @@id([notificationId, userId])
   @@index([userId], map: "fk_user_notifications_users1_idx")

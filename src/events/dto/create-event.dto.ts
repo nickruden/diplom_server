@@ -21,6 +21,9 @@ export class CreateEventDto {
   location: string;
 
   @IsString()
+  onlineInfo: string;
+
+  @IsString()
   status: string;
 
   @IsNumber()

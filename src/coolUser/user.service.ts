@@ -61,7 +61,7 @@ export class UserService {
     return user;
   }
 
-  async delterBadUser(id: number) {
+  async deleteBadUser(id: number) {
     const deltedUser = await this.prisma.users.delete({
       where: { id: id },
     });
@@ -280,10 +280,10 @@ export class UserService {
     const result = purchases.map((purchase) => ({
       purchaseId: purchase.id,
       purchaseTime: purchase.purchaseTime,
+      price: purchase.price,
       ticketInfo: {
         name: purchase.ticket.name,
         description: purchase.ticket.description,
-        price: purchase.ticket.price,
       },
       eventInfo: {
         id: purchase.ticket.event.id,
@@ -291,6 +291,7 @@ export class UserService {
         image: purchase.ticket.event.images[0].imageUrl,
         startTime: purchase.ticket.event.startTime,
         location: purchase.ticket.event.location,
+        onlineInfo: purchase.ticket.event.onlineInfo,
         refundDate: purchase.ticket.event.refundDate 
         ? (purchase.ticket.event.refundDate <= purchase.ticket.event.createdAt 
           ? false 

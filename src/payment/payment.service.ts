@@ -67,7 +67,7 @@ export class PaymentService {
     }
   }
 
-  async confirmTickets(userId: number, tickets: { idTicket: number; count: number }[]) {
+  async confirmTickets(userId: number, tickets: { idTicket: number; count: number; price: number }[]) {
     // Получаем информацию о билетах
     const ticketsInfo = await this.prisma.ticket.findMany({
       where: {
@@ -101,6 +101,7 @@ export class PaymentService {
         Array.from({ length: t.count }, () => ({
           userId,
           ticketId: t.idTicket,
+          price: t.price,
         }))
       );
       await tx.ticketPurchase.createMany({ data });

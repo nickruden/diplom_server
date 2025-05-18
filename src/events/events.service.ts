@@ -2,44 +2,120 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class EventsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notificationService: NotificationsService) {}
 
-  async getAllEvents() {
-    const now = new Date();
-
-    const events = this.prisma.events.findMany({
+  private async updateSoldOutEventsStatus() {
+    const events = await this.prisma.events.findMany({
       where: {
-        endTime: {gte: now},
-        status: "Опубликовано",
+        status: {
+          in: ['Опубликовано', 'Sold Out', 'Черновик'],
+        }
       },
+      include: {
+        tickets: {
+          select: {
+            isSoldOut: true,
+          }
+        }
+      }
+    });
+  
+    for (const event of events) {
+      const allTicketsSoldOut = event.tickets.length > 0 && event.tickets.every(ticket => ticket.isSoldOut);
+      const hasAvailableTickets = event.tickets.some(ticket => !ticket.isSoldOut);
+  
+      if (allTicketsSoldOut && event.status !== 'Sold Out') {
+        await this.prisma.events.update({
+          where: { id: event.id },
+          data: { status: 'Sold Out' },
+        });
+      } else if (hasAvailableTickets && event.status === 'Sold Out') {
+        await this.prisma.events.update({
+          where: { id: event.id },
+          data: { status: 'Черновик' },
+        });
+      }
+    }
+  }
+  
+  async getAllEvents(filters: {
+    type?: string;
+    city?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  } = {}) {
+    await this.updateSoldOutEventsStatus();
+  
+    const now = new Date();
+    const where: any = {
+      endTime: { gte: now },
+      status: "Опубликовано",
+    };
+  
+    // Тип: online / free
+    if (filters.type === 'online') {
+      where.location = 'Онлайн';
+    }
+  
+    if (filters.type === 'free') {
+      where.AND = [
+        { tickets: { some: {} } }, 
+        { tickets: { every: { price: 0 } } }, 
+      ];
+    }
+  
+    // Даты (startDate + endDate)
+    if (filters.startDate && filters.endDate) {
+      const start = new Date(filters.startDate);
+      const end = new Date(filters.endDate);
+      where.startTime = {
+        gte: start,
+        lte: end,
+      };
+    }
+  
+    // Город
+    if (filters.city) {
+      where.city = filters.city;
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } }
+      ];
+    }
+  
+    return this.prisma.events.findMany({
+      where,
       include: {
         images: {
           select: {
             imageUrl: true,
             isMain: true
-          }
+          },
         },
         organizer: {
           select: {
             organizerName: true,
             avatar: true,
             id: true,
-          }
+          },
         },
         tickets: {
           select: {
             price: true,
             isSoldOut: true,
-          }
+          },
         },
       },
-    })
-   
-    return events;
-  }
+    });
+  }  
 
   async getEventById(eventId: number) {
     const event = await this.prisma.events.findUnique({
@@ -119,6 +195,8 @@ export class EventsService {
         },
       },
     });
+
+    console.log("пришли данные: ", event)
   
     return {
       ...event,
@@ -139,6 +217,8 @@ export class EventsService {
   }
 
   async getEventsByCreator(creatorId: number, filter?: 'upcoming' | 'past') {
+    await this.updateSoldOutEventsStatus();
+
     const now = new Date();
   
     const whereParams: any = {
@@ -199,48 +279,88 @@ export class EventsService {
       return eventsWithSales;
   }
 
-  async getEventsByCategory(slug: string) {
+  async getEventsByCategory(slug: string, filters: {
+    type?: string;
+    city?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  } = {}) {
+    await this.updateSoldOutEventsStatus();
+  
     const now = new Date();
+    const where: any = {
+      endTime: { gte: now },
+      status: "Опубликовано",
+      category: { slug },
+    };
+  
+    // Тип: online / free
+    if (filters.type === 'online') {
+      where.location = 'Онлайн';
+    }
+  
+    if (filters.type === 'free') {
+      where.AND = [
+        ...(where.AND || []),
+        { tickets: { some: {} } },
+        { tickets: { every: { price: 0 } } },
+      ];
+    }
+  
+    // Даты
+    if (filters.startDate && filters.endDate) {
+      const start = new Date(filters.startDate);
+      const end = new Date(filters.endDate);
+      where.startTime = {
+        gte: start,
+        lte: end,
+      };
+    }
+  
+    // Город
+    if (filters.city) {
+      where.city = filters.city;
+    }
 
-      const events = await this.prisma.events.findMany({
-        where: {
-          endTime: { gte: now },
-          category: {
-            slug: slug
+    if (filters.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } }
+      ];
+    }
+  
+    return this.prisma.events.findMany({
+      where,
+      include: {
+        images: {
+          select: {
+            imageUrl: true,
+            isMain: true,
           },
-          status: "Опубликовано",
         },
-        include: {
-          images: {
-            select: {
-              imageUrl: true,
-              isMain: true
-            }
+        organizer: {
+          select: {
+            organizerName: true,
+            avatar: true,
+            id: true,
           },
-          organizer: {
-            select: {
-              organizerName: true,
-              avatar: true,
-              id: true,
-            }
-          },
-          category: {
-            select: {
-              name: true,
-              slug: true
-            }
-          },
-          tickets: {
-            select: {
-              price: true,
-              isSoldOut: true,
-            }
-          }
         },
-      });
-
-      return events;
-  }
+        category: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+        tickets: {
+          select: {
+            price: true,
+            isSoldOut: true,
+          },
+        },
+      },
+    });
+  }  
 
   async createEvent(dto: CreateEventDto, userId: number) {
     const createdEvent = await this.prisma.events.create({
@@ -250,6 +370,7 @@ export class EventsService {
         startTime: new Date(dto.startTime),
         endTime: new Date(dto.endTime),
         location: dto.location,
+        onlineInfo: dto.onlineInfo || '',
         status: dto.status || 'Черновик',
         viewsEvent: dto.viewsEvent || 0,
         isPrime: dto.isPrime || 0,
@@ -276,6 +397,8 @@ export class EventsService {
       },
     });
 
+    await this.notificationService.notifyFollowersOnNewEvent(userId, createdEvent.name);
+
     return { eventsCount, eventId: createdEvent.id };
   }
 
@@ -291,18 +414,22 @@ export class EventsService {
   
     // Подготовка данных к обновлению
     const updateData: any = {};
+    console.log(dto.startTime, dto.endTime)
   
     if (dto.title) updateData.name = dto.title;
     if (dto.description) updateData.description = dto.description;
     if (dto.startTime) updateData.startTime = new Date(dto.startTime);
     if (dto.endTime) updateData.endTime = new Date(dto.endTime);
     if (dto.location) updateData.location = dto.location;
+    if (dto.onlineInfo) updateData.onlineInfo = dto.onlineInfo;
     if (dto.status) updateData.status = dto.status;
     if (dto.viewsEvent) updateData.viewsEvent = dto.viewsEvent;
     if (typeof dto.isPrime === 'boolean') updateData.isPrime = +dto.isPrime;
     if (dto.refundDate) updateData.refundDate = new Date(dto.refundDate);
     if (typeof dto.isAutoRefund) updateData.isAutoRefund = dto.isAutoRefund;
     if (dto.categoryId) updateData.categoryId = dto.categoryId;
+
+    console.log(updateData)
   
     // Обновляем основную запись
     await this.prisma.events.update({
@@ -321,58 +448,85 @@ export class EventsService {
         isMain: +img.isMain,
         eventId,
       }));
-    
+
       await this.prisma.eventImage.createMany({
         data: imagesData,
       });
     }
-  
+
+    const shouldNotify =
+      dto.status && dto.status !== existingEvent.status ||
+      dto.title && dto.title !== existingEvent.name ||
+      dto.description && dto.description !== existingEvent.description;
+
+    if (shouldNotify) {
+      if (dto.status === 'Черновик') {
+        await this.notificationService.notifyUsersForEventChange(eventId, 'refund');
+      } else if (dto.status === 'Опубликовано') {
+        await this.notificationService.notifyUsersForEventChange(eventId, 'public');
+      } else {
+        await this.notificationService.notifyUsersForEventChange(eventId, 'update');
+      }
+    }
+
     return { updated: true, eventId };
   }
   
-  async deleteEvent(eventId: number, userId: number) {
-    // Проверяем есть ли купленные билеты у этого события
-    const purchasedTicketsCount = await this.prisma.ticketPurchase.count({
-      where: {
-        ticket: {
-          eventId: eventId
+  async deleteEvent(eventId: number, userId: number, deleteAccess: boolean) {
+    if (!deleteAccess) {
+      const purchasedTicketsCount = await this.prisma.ticketPurchase.count({
+        where: {
+          ticket: {
+            eventId: eventId
+          }
         }
-      }
-    });
+      });
+      console.log(purchasedTicketsCount)
   
-    if (purchasedTicketsCount > 0) {
-      throw {
-        statusCode: 409, // Conflict
-        message: "Невозможно удалить событие: существуют купленные билеты",
-        error: "EVENT_HAS_PURCHASES",
-        details: {
-          purchasedTicketsCount,
-          eventId
-        }
-      };
+      if (purchasedTicketsCount > 0) {
+        throw {
+          statusCode: 409,
+          message: "Невозможно удалить событие: существуют купленные билеты",
+          error: "EVENT_HAS_PURCHASES",
+          details: {
+            purchasedTicketsCount,
+            eventId
+          }
+        };
+      }
     }
   
-    // Если купленных билетов нет - удаляем событие
-    await this.prisma.$transaction(async (tx) => {
-      // Удаляем связанные данные
+    return await this.prisma.$transaction(async (tx) => {
       await tx.eventImage.deleteMany({ where: { eventId } });
       await tx.eventSchedule.deleteMany({ where: { eventId } });
+      await tx.favoriteEvents.deleteMany({ where: { eventId } });
+
+      if (deleteAccess) {
+        await tx.ticketPurchase.deleteMany({
+          where: {
+            ticket: {
+              eventId: eventId
+            }
+          }
+        });
+
+        await this.notificationService.notifyUsersForEventChange(eventId, 'cancel');
+      }
+
       await tx.ticket.deleteMany({ where: { eventId } });
-    
-      // Удаляем само событие
+
       await tx.events.delete({
         where: { id: eventId },
       });
-    });
   
-    // Считаем оставшееся количество событий у пользователя
-    const remainingEventsCount = await this.prisma.events.count({
-      where: { organizerId: userId },
-    });
+      const remainingEventsCount = await tx.events.count({
+        where: { organizerId: userId },
+      });
   
-    return {
-      eventCount: remainingEventsCount,
-    };
+      return {
+        eventCount: remainingEventsCount,
+      };
+    });
   }
 
   async deleteImage(publicId: string) {
@@ -477,7 +631,6 @@ export class EventsService {
     });
 
     if (purchases.length === 0) {
-      console.log(1)
       return [];
     }
 

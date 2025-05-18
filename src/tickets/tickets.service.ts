@@ -14,9 +14,14 @@ export class TicketsService {
         purchases: true,
       },
     });
-
+  
     if (tickets.length === 0) {
-      return [];
+      return {
+        tickets: [],
+        totalTickets: 0,
+        totalSold: 0,
+        totalRemaining: 0
+      };
     }
   
     const totalTickets = await this.prisma.ticket.aggregate({
@@ -26,8 +31,17 @@ export class TicketsService {
       },
     });
   
+    const totalSoldTickets = await this.prisma.ticketPurchase.count({
+      where: {
+        ticket: {
+          eventId: eventId
+        }
+      }
+    });
+  
     const detailedTickets = tickets.map(ticket => {
       const soldCount = ticket.purchases.length;
+      const remainingCount = ticket.count - soldCount;
       const profit = soldCount * ticket.price;
   
       return {
@@ -39,14 +53,17 @@ export class TicketsService {
         salesEnd: ticket.salesEnd,
         count: ticket.count,
         soldCount,
+        remainingCount,
         profit,
-        isSoldOut: ticket.isSoldOut,
+        isSoldOut: ticket.isSoldOut || remainingCount <= 0,
       };
     });
   
     return {
       tickets: detailedTickets,
       totalTickets: totalTickets._sum.count || 0,
+      totalSold: totalSoldTickets,
+      totalRemaining: (totalTickets._sum.count || 0) - totalSoldTickets
     };
   }
 
@@ -63,11 +80,40 @@ export class TicketsService {
   }
 
   async updateTicket(ticketId: number, dto: UpdateTicketDto) {
-    return this.prisma.ticket.update({
+    const existingTicket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
-      data: dto,
+      include: {
+        purchases: true,
+      },
     });
-  }
+  
+    if (!existingTicket) {
+      throw new Error('Ticket not found');
+    }
+  
+    const purchasesCount = existingTicket.purchases.length;
+  
+    let newCount = dto.count ?? existingTicket.count;
+    let isSoldOut = existingTicket.isSoldOut;
+
+    console.log(purchasesCount, newCount)
+  
+    if (purchasesCount == newCount) {
+      isSoldOut = true;
+    } else {
+      isSoldOut = false;
+    }
+
+    console.log(isSoldOut)
+  
+    return await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        ...dto,
+        isSoldOut,
+      },
+    });
+  }  
 
   async deleteTicket(ticketId: number) {
     // Проверяем, есть ли покупки этого билета
@@ -78,7 +124,7 @@ export class TicketsService {
     if (purchasesCount > 0) {
       throw new HttpException(
         {
-          statusCode: HttpStatus.CONFLICT, // 409 Conflict
+          statusCode: HttpStatus.CONFLICT,
           message: 'Невозможно удалить билет: существуют покупки',
           error: 'TICKET_HAS_PURCHASES',
           details: {

@@ -10,8 +10,8 @@ export class EventsController {
   constructor(private readonly eventsService: EventsService) { }
 
   @Get()
-  getAllEvents() {
-    return this.eventsService.getAllEvents();
+  getAllEvents(@Query() query: any) {
+    return this.eventsService.getAllEvents(query);
   }
 
   @Get(':id')
@@ -20,16 +20,13 @@ export class EventsController {
   }
 
   @Get('/creator/:id')
-  getEventByCreator(
-    @Param('id') id: string,
-    @Query('filter') filter?: 'upcoming' | 'past'
-  ) {
+  getEventByCreator(@Param('id') id: string, @Query('filter') filter?: 'upcoming' | 'past') {
     return this.eventsService.getEventsByCreator(+id, filter);
   }
 
   @Get('/category/:slug')
-  getEventsByCategory(@Param('slug') slug: string) {
-    return this.eventsService.getEventsByCategory(slug);
+  getEventsByCategory(@Param('slug') slug: string, @Query() query: any) {
+    return this.eventsService.getEventsByCategory(slug, query);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -47,8 +44,10 @@ export class EventsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete('delete/:id')
-  delterUser(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.eventsService.deleteEvent(+id, +user.id);
+  deleteEvent(@Param('id') id: string, @CurrentUser() user: any, @Query('realyDel') realyDel: string) {
+    const deleteAccess = (realyDel === "true" ? true : false );
+    console.log(deleteAccess)
+    return this.eventsService.deleteEvent(+id, +user.id, deleteAccess);
   }
 
   @UseGuards(JwtAuthGuard)

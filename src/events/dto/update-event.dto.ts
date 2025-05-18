@@ -35,6 +35,10 @@ import {
     @IsString()
     @MaxLength(150)
     location?: string;
+
+    @IsOptional()
+    @IsString()
+    onlineInfo?: string;
   
     @IsOptional()
     @IsString()

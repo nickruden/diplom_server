@@ -15,12 +15,12 @@ export class CreateTicketDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
-  salesStart: Date;
+  salesStart?: Date;
 
   @IsOptional()
   @Type(() => Date)
   @IsDate()
-  salesEnd: Date;
+  salesEnd?: Date;
 
   @IsInt()
   count: number;
