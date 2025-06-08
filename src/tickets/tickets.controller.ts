@@ -7,7 +7,7 @@ import { CurrentUser } from 'src/coolUser/decorator/current-user.decorator';
 
 @Controller('tickets')
 export class TicketsController {
-  constructor(private readonly ticketsService: TicketsService) {}
+  constructor(private readonly ticketsService: TicketsService) { }
 
   @Get(':id')
   getTicketsByEvent(@Param('id') eventId: string) {
@@ -31,5 +31,11 @@ export class TicketsController {
   @Delete(':ticketId')
   deleteTicket(@Param('ticketId') ticketId: string) {
     return this.ticketsService.deleteTicket(+ticketId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':ticketId/refund')
+  async deleteAllPurchases(@Param('ticketId') ticketId: string,) {
+    return await this.ticketsService.deleteAllPurchasesByTicketId(+ticketId);
   }
 }

@@ -30,6 +30,10 @@ import {
     @IsOptional()
     @IsDateString()
     endTime?: string;
+
+    @IsOptional()
+    @IsDateString()
+    eventDailys?: string;
   
     @IsOptional()
     @IsString()

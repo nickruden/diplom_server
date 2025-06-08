@@ -4937,6 +4937,11 @@ node-addon-api@^8.1.0:
   resolved "https://registry.npmjs.org/node-addon-api/-/node-addon-api-8.3.1.tgz"
   integrity sha512-lytcDEdxKjGJPTLEfW4mYMigRezMlyJY8W4wxJK8zE533Jlb8L8dRuObJFWg2P+AuOIxoCgKF+2Oq4d4Zd0OUA==
 
+node-cron@^4.1.0:
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/node-cron/-/node-cron-4.1.0.tgz#375e5057c59a6c65218f5eb1a3d11de02858a764"
+  integrity sha512-OS+3ORu+h03/haS6Di8Qr7CrVs4YaKZZOynZwQpyPZDnR3tqRbwJmuP2gVR16JfhLgyNlloAV1VTrrWlRogCFA==
+
 node-emoji@1.11.0:
   version "1.11.0"
   resolved "https://registry.npmjs.org/node-emoji/-/node-emoji-1.11.0.tgz"

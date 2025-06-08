@@ -47,7 +47,8 @@ model Events {
   name            String            @map("event_name") @db.VarChar(100)
   description     String             
   endTime         DateTime          @map("end_time")  
-  startTime       DateTime          @map("start_time")  
+  startTime       DateTime          @map("start_time")
+  eventDailys     String?           
   location        String            @db.VarChar(150)
   onlineInfo String? @map("online_info")
   status          String            @db.VarChar(50)
@@ -119,6 +120,8 @@ model Ticket {
   price       Int
   salesStart  DateTime?        @map("sales_start")  
   salesEnd    DateTime?        @map("sales_end")  
+  validFrom DateTime? 
+  validTo DateTime? 
   count       Int
   isSoldOut   Boolean              @map("is_soldout")  
   eventId     Int              @map("events_event_id")
@@ -136,8 +139,10 @@ model TicketPurchase {
   userId       Int      @map("users_user_id")
   ticketId     Int      @map("tickets_ticket_id")
   price Int 
-  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_tickets1")
-  user         Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_tickets_users1")
+  validFrom DateTime? 
+  validTo DateTime? 
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_tickets_tickets1")
+  user         Users    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_tickets_users1")
 
   @@id([id, userId, ticketId])
   @@index([ticketId], map: "fk_purchase_tickets_tickets1_idx")

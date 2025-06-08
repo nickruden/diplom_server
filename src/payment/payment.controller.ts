@@ -6,7 +6,7 @@ import { CurrentUser } from 'src/coolUser/decorator/current-user.decorator';
 
 @Controller('payment')
 export class PaymentController {
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(private readonly paymentService: PaymentService) { }
 
   // Запрос для создания платежа
   @UseGuards(JwtAuthGuard)
@@ -27,15 +27,15 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard)
   @Post('confirm')
   @HttpCode(200)
-  async confirmPayment(@Body() body: { idBuyer: number; tickets: { idTicket: number; count: number; price: number }[] }) {
+  async confirmPayment(@Body() body: { idBuyer: number; tickets: { idTicket: number; count: number; price: number; validFrom: string; validTo: string; }[] }) {
     return this.paymentService.confirmTickets(body.idBuyer, body.tickets);
   }
 
   @UseGuards(JwtAuthGuard)
-@Post('return/:id')
-async returnTicket(@Param('id') id: string, @CurrentUser() user: any) {
-  const userId = user.id;
-  return this.paymentService.returnTicket(+id, +userId);
-}
+  @Post('return/:id')
+  async returnTicket(@Param('id') id: string, @CurrentUser() user: any) {
+    const userId = user.id;
+    return this.paymentService.returnTicket(+id, +userId);
+  }
 
 }

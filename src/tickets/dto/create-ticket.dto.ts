@@ -22,6 +22,16 @@ export class CreateTicketDto {
   @IsDate()
   salesEnd?: Date;
 
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  validFrom?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  validTo?: Date;
+
   @IsInt()
   count: number;
 }

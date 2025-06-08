@@ -73,6 +73,7 @@ export class UserController {
   @Get('my-tickets')
   async getUserTickets(@CurrentUser() user: any) {
     const userId = user.id;
+    console.log(userId)
     return this.userService.getUserTickets(+userId);
   }
 }

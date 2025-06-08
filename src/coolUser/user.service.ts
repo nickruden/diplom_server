@@ -281,6 +281,8 @@ export class UserService {
       purchaseId: purchase.id,
       purchaseTime: purchase.purchaseTime,
       price: purchase.price,
+      validFrom: purchase.validFrom,
+      validTo: purchase.validTo,
       ticketInfo: {
         name: purchase.ticket.name,
         description: purchase.ticket.description,
@@ -291,6 +293,7 @@ export class UserService {
         image: purchase.ticket.event.images[0].imageUrl,
         startTime: purchase.ticket.event.startTime,
         location: purchase.ticket.event.location,
+        status: purchase.ticket.event.status,
         onlineInfo: purchase.ticket.event.onlineInfo,
         refundDate: purchase.ticket.event.refundDate 
         ? (purchase.ticket.event.refundDate <= purchase.ticket.event.createdAt 
@@ -299,6 +302,8 @@ export class UserService {
         : false
       },
     }));
+
+    console.log(result)
 
     return result;
   }
