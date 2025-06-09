@@ -62,8 +62,6 @@ export class EventsService {
       }
     });
 
-    console.log(now)
-
     for (const event of events) {
       const wasSold = event.tickets.some(t => t.purchases.length > 0);
 
@@ -79,7 +77,6 @@ export class EventsService {
   onModuleInit() {
     cron.schedule('*/1 * * * *', async () => {
       try {
-        console.log('[CRON] Запуск задачи обновления событий...');
         await this.updatePastEventsStatus();
       } catch (error) {
         console.error('[CRON] Ошибка при обновлении событий:', error);
@@ -127,9 +124,12 @@ export class EventsService {
     if (filters.startDate && filters.endDate) {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
-      where.startTime = {
-        gte: start,
-        lte: end,
+
+      where.tickets = {
+        some: {
+          validFrom: { lte: end },
+          validTo: { gte: start },
+        },
       };
     }
 
@@ -158,48 +158,45 @@ export class EventsService {
 
     return events
       .map(event => {
-        const validTickets = event.tickets.filter(t =>
-          !t.isSoldOut &&
-          t.salesEnd &&
-          new Date(t.salesEnd) > now &&
-          t.validFrom instanceof Date &&
-          t.validTo instanceof Date
-        );
+        const validTickets = event.tickets.filter(ticket => {
+          const isSalesActive = ticket.salesEnd && new Date(ticket.salesEnd) > now;
+          const isValidDate =
+            ticket.validFrom instanceof Date &&
+            ticket.validTo instanceof Date &&
+            ticket.validTo > now;
+
+          return !ticket.isSoldOut && isSalesActive && isValidDate;
+        });
 
         if (validTickets.length === 0) return null;
 
         const isOneDay = event.startTime.toDateString() === event.endTime.toDateString();
-
         let activeDate: Date | null = null;
 
         if (isOneDay) {
           activeDate = event.startTime;
         } else {
-          const futureDates = validTickets
+          const futureValidDates = validTickets
             .map(t => t.validFrom)
             .filter((d): d is Date => d instanceof Date && d > now)
             .sort((a, b) => a.getTime() - b.getTime());
 
-          if (futureDates.length > 0) {
-            activeDate = futureDates[0];
-          } else {
-            const latestValid = validTickets
+          activeDate =
+            futureValidDates[0] ||
+            validTickets
               .map(t => t.validFrom)
               .filter((d): d is Date => d instanceof Date)
-              .sort((a, b) => b.getTime() - a.getTime())[0];
-
-            activeDate = latestValid || null;
-          }
+              .sort((a, b) => b.getTime() - a.getTime())[0] || null;
         }
 
         return { ...event, activeDate };
       })
-      .filter(Boolean);
+      .filter((event): event is typeof events[number] & { activeDate: Date } => Boolean(event));
   }
 
   async getEventById(eventId: number) {
     const event = await this.prisma.events.findUnique({
-      where: {
+      where: {  
         id: eventId,
       },
       include: {
@@ -276,8 +273,6 @@ export class EventsService {
         },
       },
     });
-
-    console.log("пришли данные: ", event)
 
     return {
       ...event,
@@ -436,9 +431,12 @@ export class EventsService {
     if (filters.startDate && filters.endDate) {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
-      where.startTime = {
-        gte: start,
-        lte: end,
+
+      where.tickets = {
+        some: {
+          validFrom: { lte: end },
+          validTo: { gte: start },
+        },
       };
     }
 
@@ -468,43 +466,40 @@ export class EventsService {
 
     return events
       .map(event => {
-        const validTickets = event.tickets.filter(t =>
-          !t.isSoldOut &&
-          t.salesEnd &&
-          new Date(t.salesEnd) > now &&
-          t.validFrom instanceof Date &&
-          t.validTo instanceof Date
-        );
+        const validTickets = event.tickets.filter(ticket => {
+          const isSalesActive = ticket.salesEnd && new Date(ticket.salesEnd) > now;
+          const isValidDate =
+            ticket.validFrom instanceof Date &&
+            ticket.validTo instanceof Date &&
+            ticket.validTo > now;
+
+          return !ticket.isSoldOut && isSalesActive && isValidDate;
+        });
 
         if (validTickets.length === 0) return null;
 
         const isOneDay = event.startTime.toDateString() === event.endTime.toDateString();
-
         let activeDate: Date | null = null;
 
         if (isOneDay) {
           activeDate = event.startTime;
         } else {
-          const futureDates = validTickets
+          const futureValidDates = validTickets
             .map(t => t.validFrom)
             .filter((d): d is Date => d instanceof Date && d > now)
             .sort((a, b) => a.getTime() - b.getTime());
 
-          if (futureDates.length > 0) {
-            activeDate = futureDates[0];
-          } else {
-            const latestValid = validTickets
+          activeDate =
+            futureValidDates[0] ||
+            validTickets
               .map(t => t.validFrom)
               .filter((d): d is Date => d instanceof Date)
-              .sort((a, b) => b.getTime() - a.getTime())[0];
-
-            activeDate = latestValid || null;
-          }
+              .sort((a, b) => b.getTime() - a.getTime())[0] || null;
         }
 
         return { ...event, activeDate };
       })
-      .filter(Boolean);
+      .filter((event): event is typeof events[number] & { activeDate: Date } => Boolean(event));
   }
 
   async createEvent(dto: CreateEventDto, userId: number) {
@@ -552,7 +547,6 @@ export class EventsService {
     const existingEvent = await this.prisma.events.findUnique({
       where: { id: eventId },
     })
-    console.log(dto.eventDailys)
     if (!existingEvent) {
       throw new Error('Событие не найдено');
     }
@@ -573,8 +567,6 @@ export class EventsService {
     if (dto.refundDate) updateData.refundDate = new Date(dto.refundDate);
     if (typeof dto.isAutoRefund) updateData.isAutoRefund = dto.isAutoRefund;
     if (dto.categoryId) updateData.categoryId = dto.categoryId;
-
-    console.log(updateData)
 
     // Обновляем основную запись
     await this.prisma.events.update({

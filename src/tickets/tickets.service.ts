@@ -137,10 +137,11 @@ export class TicketsService {
     }
 
     const hasPurchases = ticket.purchases.length > 0;
-    const now = Date.now();
+    const offsetMs = new Date().getTimezoneOffset() * 60 * 1000;
+    const now = new Date(Date.now() - offsetMs);
 
-    const ticketValidTo = ticket.validTo ? new Date(ticket.validTo).getTime() : null;
-    const isExpired = ticketValidTo !== null && ticketValidTo < now;
+    const ticketValidTo = ticket.validTo ? new Date(ticket.validTo) : null;
+    const isExpired = ticketValidTo !== null && ticketValidTo.getTime() < now.getTime();
 
     if (hasPurchases && !isExpired) {
       throw new HttpException(
