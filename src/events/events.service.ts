@@ -195,8 +195,11 @@ export class EventsService {
   }
 
   async getEventById(eventId: number) {
+    const offsetMs = new Date().getTimezoneOffset() * 60 * 1000;
+    const now = new Date(Date.now() - offsetMs);
+
     const event = await this.prisma.events.findUnique({
-      where: {  
+      where: {
         id: eventId,
       },
       include: {
@@ -226,13 +229,47 @@ export class EventsService {
             price: true,
             count: true,
             isSoldOut: true,
+            validFrom: true,  // Added this as it's needed for activeDate calculation
             validTo: true,
+            salesEnd: true,   // Added this as it's needed for activeDate calculation
           }
         }
       }
     });
 
     if (!event) return null;
+
+    // Calculate activeDate similar to getAllEvents
+    const validTickets = event.tickets.filter(ticket => {
+      const isSalesActive = ticket.salesEnd && new Date(ticket.salesEnd) > now;
+      const isValidDate =
+        ticket.validFrom instanceof Date &&
+        ticket.validTo instanceof Date &&
+        ticket.validTo > now;
+
+      return !ticket.isSoldOut && isSalesActive && isValidDate;
+    });
+
+    let activeDate: Date | null = null;
+    if (validTickets.length > 0) {
+      const isOneDay = event.startTime.toDateString() === event.endTime.toDateString();
+
+      if (isOneDay) {
+        activeDate = event.startTime;
+      } else {
+        const futureValidDates = validTickets
+          .map(t => t.validFrom)
+          .filter((d): d is Date => d instanceof Date && d > now)
+          .sort((a, b) => a.getTime() - b.getTime());
+
+        activeDate =
+          futureValidDates[0] ||
+          validTickets
+            .map(t => t.validFrom)
+            .filter((d): d is Date => d instanceof Date)
+            .sort((a, b) => b.getTime() - a.getTime())[0] || null;
+      }
+    }
 
     // Получаем количество проданных билетов для каждого типа билета
     const ticketsWithSales = await Promise.all(
@@ -276,11 +313,7 @@ export class EventsService {
 
     return {
       ...event,
-      refundDate: event.refundDate
-        ? (event.refundDate <= event.createdAt
-          ? false
-          : event.refundDate)
-        : false,
+      activeDate,  // Added activeDate to the response
       totalTicketsCount: totalTickets._sum.count || 0,
       totalSoldTickets,
       availableTicketsCount: (totalTickets._sum.count || 0) - totalSoldTickets,
@@ -546,7 +579,7 @@ export class EventsService {
   async updateEvent(eventId: number, dto: UpdateEventDto) {
     const existingEvent = await this.prisma.events.findUnique({
       where: { id: eventId },
-    })
+    });
     if (!existingEvent) {
       throw new Error('Событие не найдено');
     }
@@ -564,12 +597,12 @@ export class EventsService {
     if (dto.status) updateData.status = dto.status;
     if (dto.viewsEvent) updateData.viewsEvent = dto.viewsEvent;
     if (typeof dto.isPrime === 'boolean') updateData.isPrime = +dto.isPrime;
-    if (dto.refundDate) updateData.refundDate = new Date(dto.refundDate);
-    if (typeof dto.isAutoRefund) updateData.isAutoRefund = dto.isAutoRefund;
+    if (dto.refundDateCount !== undefined) updateData.refundDateCount = dto.refundDateCount;
+    if (typeof dto.isAutoRefund === 'boolean') updateData.isAutoRefund = dto.isAutoRefund;
     if (dto.categoryId) updateData.categoryId = dto.categoryId;
 
     // Обновляем основную запись
-    await this.prisma.events.update({
+    const updatedEvent = await this.prisma.events.update({
       where: { id: eventId },
       data: updateData,
     });
@@ -591,10 +624,38 @@ export class EventsService {
       });
     }
 
+    // Обновляем refundDateCount в билетах
+    if (dto.refundDateCount !== undefined) {
+      await this.prisma.ticket.updateMany({
+        where: { eventId },
+        data: {
+          refundDateCount: dto.refundDateCount
+        },
+      });
+
+      // Обновляем refundDateCount в покупках, только если новое значение меньше предыдущего
+      if (dto.refundDateCount < (existingEvent.refundDateCount || Infinity)) {
+        await this.prisma.ticketPurchase.updateMany({
+          where: {
+            ticket: {
+              eventId: eventId
+            },
+            // Обновляем только те покупки, у которых refundDateCount больше нового значения
+            refundDateCount: {
+              gt: dto.refundDateCount
+            }
+          },
+          data: {
+            refundDateCount: dto.refundDateCount
+          }
+        });
+      }
+    }
+
     const shouldNotify =
-      dto.status && dto.status !== existingEvent.status ||
-      dto.title && dto.title !== existingEvent.name ||
-      dto.description && dto.description !== existingEvent.description;
+      (dto.status && dto.status !== existingEvent.status) ||
+      (dto.title && dto.title !== existingEvent.name) ||
+      (dto.description && dto.description !== existingEvent.description);
 
     if (shouldNotify) {
       if (dto.status === 'Черновик') {

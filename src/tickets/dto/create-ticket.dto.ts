@@ -32,6 +32,10 @@ export class CreateTicketDto {
   @IsDate()
   validTo?: Date;
 
+  @IsOptional()
+  @IsInt()
+  refundDateCount?: number;
+
   @IsInt()
   count: number;
 }

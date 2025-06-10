@@ -163,7 +163,7 @@ export class UserService {
     if (followings.length === 0) {
       return [];
     }
-  
+
     return followings.map(f => f.userId);
   }
 
@@ -177,10 +177,10 @@ export class UserService {
         userId: true,
       },
     });
-  
+
     return follow.userId;
   }
-  
+
   async userUnfollow(id: number, userId: number) {
     await this.prisma.userFollower.deleteMany({
       where: {
@@ -188,7 +188,7 @@ export class UserService {
         userId: id,
       },
     });
-  
+
     return id;
   }
 
@@ -197,13 +197,13 @@ export class UserService {
       where: { followerId: userId },
       select: { userId: true },
     });
-  
+
     const organizerIds = followingOrganizers.map(follow => follow.userId);
 
     if (organizerIds.length === 0) {
       return [];
     }
-  
+
     const users = await this.prisma.users.findMany({
       where: { id: { in: organizerIds } },
       select: {
@@ -214,11 +214,11 @@ export class UserService {
         organizerMedias: true,
       },
     });
-  
+
     if (!users || users.length === 0) {
       throw new Error('Подписки не найдены');
     }
-  
+
     // Получаем количество подписчиков для каждого пользователя
     const followersCounts = await this.prisma.userFollower.groupBy({
       by: ['userId'],
@@ -229,13 +229,13 @@ export class UserService {
         _all: true,
       },
     });
-  
+
     // Формируем массив с информацией о пользователях и количестве подписчиков
     const usersWithCounts = users.map(user => ({
       ...user,
       followersCount: followersCounts.find(f => f.userId === user.id)?._count._all || 0,
     }));
-  
+
     // Сортируем по количеству подписчиков (по убыванию)
     return usersWithCounts.sort((a, b) => b.followersCount - a.followersCount);
   }
@@ -267,7 +267,7 @@ export class UserService {
                   where: { isMain: 1 },
                 },
               },
-            }
+            },
           },
         },
       },
@@ -277,34 +277,52 @@ export class UserService {
       return [];
     }
 
-    const result = purchases.map((purchase) => ({
-      purchaseId: purchase.id,
-      purchaseTime: purchase.purchaseTime,
-      price: purchase.price,
-      validFrom: purchase.validFrom,
-      validTo: purchase.validTo,
-      ticketInfo: {
-        name: purchase.ticket.name,
-        description: purchase.ticket.description,
-      },
-      eventInfo: {
-        id: purchase.ticket.event.id,
-        name: purchase.ticket.event.name,
-        image: purchase.ticket.event.images[0].imageUrl,
-        startTime: purchase.ticket.event.startTime,
-        location: purchase.ticket.event.location,
-        status: purchase.ticket.event.status,
-        onlineInfo: purchase.ticket.event.onlineInfo,
-        refundDate: purchase.ticket.event.refundDate 
-        ? (purchase.ticket.event.refundDate <= purchase.ticket.event.createdAt 
-          ? false 
-          : purchase.ticket.event.refundDate)
-        : false
-      },
-    }));
+    const offsetMs = new Date().getTimezoneOffset() * 60 * 1000;
+    const now = new Date(Date.now() - offsetMs);
 
-    console.log(result)
+    const result = purchases.map((purchase) => {
+      const refundDateCount = purchase.refundDateCount
+      const { validFrom, price } = purchase.ticket;
+
+      let refundDeadline;
+
+      if (validFrom && typeof refundDateCount === 'number') {
+        if (refundDateCount === 0) {
+          refundDeadline = 0;
+        } else {
+          const deadline = new Date(validFrom);
+          deadline.setDate(deadline.getDate() - refundDateCount);
+
+          refundDeadline = now > deadline ? null : deadline;
+          console.log(deadline, now);
+        }
+      }
+
+      return {
+        purchaseId: purchase.id,
+        purchaseTime: purchase.purchaseTime,
+        price: purchase.price,
+        validFrom: purchase.validFrom,
+        validTo: purchase.validTo,
+        refundDeadline,
+        ticketInfo: {
+          name: purchase.ticket.name,
+          description: purchase.ticket.description,
+        },
+        eventInfo: {
+          id: purchase.ticket.event.id,
+          name: purchase.ticket.event.name,
+          image: purchase.ticket.event.images[0]?.imageUrl ?? null,
+          startTime: purchase.ticket.event.startTime,
+          location: purchase.ticket.event.location,
+          status: purchase.ticket.event.status,
+          onlineInfo: purchase.ticket.event.onlineInfo,
+          refundDateCount: purchase.ticket.event.refundDateCount,
+        },
+      };
+    });
 
     return result;
   }
+
 }

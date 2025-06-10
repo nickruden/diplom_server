@@ -53,7 +53,7 @@ model Events {
   onlineInfo String? @map("online_info")
   status          String            @db.VarChar(50)
   isPrime         Int               @map("is_prime") 
-  refundDate      DateTime?         @map("refund_date")
+  refundDateCount      Int?         @map("refund_date_Count")
   isAutoRefund      Int             @map("auto_refund")  @default(0)
   createdAt       DateTime          @default(now()) @map("created_ad") @db.Timestamp(0)
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
@@ -122,6 +122,7 @@ model Ticket {
   salesEnd    DateTime?        @map("sales_end")  
   validFrom DateTime? 
   validTo DateTime? 
+  refundDateCount      Int?         @map("refund_date_count")
   count       Int
   isSoldOut   Boolean              @map("is_soldout")  
   eventId     Int              @map("events_event_id")
@@ -141,6 +142,7 @@ model TicketPurchase {
   price Int 
   validFrom DateTime? 
   validTo DateTime? 
+  refundDateCount      Int?         @map("refund_date_count")
   ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_tickets_tickets1")
   user         Users    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_tickets_users1")
 

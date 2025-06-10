@@ -59,8 +59,8 @@ import {
     isPrime?: number;
 
     @IsOptional()
-    @IsDateString()
-    refundDate?: string;
+    @IsInt()
+    refundDateCount?: number;
 
     @IsOptional()
     @IsInt()

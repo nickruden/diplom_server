@@ -56,6 +56,7 @@ export class TicketsService {
         count: ticket.count,
         validFrom: ticket.validFrom,
         validTo: ticket.validTo,
+        refundDateCount: ticket.refundDateCount,
         soldCount,
         remainingCount,
         profit,
@@ -75,6 +76,7 @@ export class TicketsService {
     return await this.prisma.ticket.create({
       data: {
         ...dto,
+        refundDateCount: dto.refundDateCount ? dto.refundDateCount : 0,
         isSoldOut: false,
         event: {
           connect: { id: eventId },
@@ -106,22 +108,22 @@ export class TicketsService {
       isSoldOut = false;
     }
 
-    console.log(isSoldOut)
-
     return await this.prisma.ticket.update({
       where: { id: ticketId },
       data: {
         ...dto,
+        refundDateCount: dto.refundDateCount ? dto.refundDateCount : 0,
         isSoldOut,
       },
     });
   }
 
-  async deleteTicket(ticketId: number) {
+async deleteTicket(ticketId: number) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
       include: {
         purchases: true,
+        event: true, // Включаем информацию о мероприятии
       },
     });
 
@@ -147,8 +149,7 @@ export class TicketsService {
       throw new HttpException(
         {
           statusCode: HttpStatus.CONFLICT,
-          message:
-            'Невозможно удалить билет: существуют покупки и срок действия билета ещё не истёк',
+          message: 'Невозможно удалить билет: существуют покупки и срок действия билета ещё не истёк',
           error: 'TICKET_HAS_PURCHASES',
           details: {
             purchasesCount: ticket.purchases.length,
@@ -159,11 +160,34 @@ export class TicketsService {
       );
     }
 
+    // Сохраняем eventId перед удалением билета
+    const eventId = ticket.eventId;
+
+    // Удаляем билет
     await this.prisma.ticket.delete({
       where: { id: ticketId },
     });
 
-    return { success: true };
+    // Проверяем, остались ли другие билеты у этого мероприятия
+    const remainingTickets = await this.prisma.ticket.findMany({
+      where: { eventId },
+    });
+
+    // Если это был последний билет, можно обновить статус мероприятия
+    if (remainingTickets.length === 0) {
+      await this.prisma.events.update({
+        where: { id: eventId },
+        data: {
+          status: 'Черновик',
+        },
+      });
+    }
+
+    return { 
+      success: true,
+      wasLastTicket: remainingTickets.length === 0,
+      eventId,
+    };
   }
 
   async deleteAllPurchasesByTicketId(ticketId: number) {
@@ -191,9 +215,18 @@ export class TicketsService {
       },
     });
 
+    // Обновляем isSoldOut на false, если билет был продан
+    if (ticket.isSoldOut) {
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: { isSoldOut: false },
+      });
+    }
+
     return {
       message: `Удалено ${deleted.count} покупок билета`,
       deletedCount: deleted.count,
+      wasSoldOut: ticket.isSoldOut, // Можно добавить информацию о том, был ли билет продан
     };
   }
 

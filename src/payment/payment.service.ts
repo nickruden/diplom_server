@@ -67,7 +67,7 @@ export class PaymentService {
     }
   }
 
-  async confirmTickets(userId: number, tickets: { idTicket: number; count: number; price: number; validFrom: string; validTo: string; }[]) {
+  async confirmTickets(userId: number, tickets: { idTicket: number; count: number; price: number; validFrom: string; validTo: string; refundDateCount: number }[]) {
     // Получаем информацию о билетах
     const ticketsInfo = await this.prisma.ticket.findMany({
       where: {
@@ -104,6 +104,7 @@ export class PaymentService {
           price: t.price,
           validFrom: new Date(t.validFrom),
           validTo: new Date(t.validTo),
+          refundDateCount: t.refundDateCount,
         }))
       );
       await tx.ticketPurchase.createMany({ data });
@@ -134,74 +135,80 @@ export class PaymentService {
     return result;
   }
 
-  async returnTicket(purchaseId: number, userId: number) {
-    const purchase = await this.prisma.ticketPurchase.findFirst({
-      where: { id: purchaseId, userId },
-      include: { 
-        ticket: { 
-          include: { 
-            event: {
-              select: {
-                id: true,
-                refundDate: true,
-                createdAt: true,
-                revenue: true
-              }
-            },
-            _count: {
-              select: { purchases: true }
+async returnTicket(purchaseId: number, userId: number) {
+  const purchase = await this.prisma.ticketPurchase.findFirst({
+    where: { id: purchaseId, userId },
+    include: { 
+      ticket: { 
+        include: { 
+          event: {
+            select: {
+              id: true,
+              revenue: true
             }
-          } 
+          },
+          _count: {
+            select: { purchases: true }
+          }
         } 
-      },
-    });
-  
-    if (!purchase) throw new Error("Билет не найден или не принадлежит пользователю");
-  
-    const event = purchase.ticket.event;
-    const now = new Date();
-  
-    if (!event.refundDate) {
-      throw new Error("Возврат невозможен: не указана дата возврата");
-    }
-  
-    if (event.refundDate <= event.createdAt || now > event.refundDate) {
-      return {
-        success: false,
-        error: {
-          code: "REFUND_EXPIRED",
-          message: "Срок возврата истёк",
-        },
-      };
-    }
-  
-    // Выполняем в транзакции
-    const result = await this.prisma.$transaction(async (tx) => {
-      // 1. Удаляем покупку
-      await tx.ticketPurchase.delete({
-        where: { id: purchaseId }
-      });
-  
-      // 2. Обновляем выручку
-      await tx.events.update({
-        where: { id: purchase.ticket.event.id },
-        data: { 
-          revenue: { decrement: purchase.ticket.price } 
-        }
-      });
-  
-      // 3. Снимаем флаг soldOut если нужно
-      const purchasesCount = purchase.ticket._count.purchases - 1; // -1 т.к. мы удалили одну покупку
-      if (purchasesCount < purchase.ticket.count) {
-        await tx.ticket.update({
-          where: { id: purchase.ticket.id },
-          data: { isSoldOut: false }
-        });
-      }
-  
-      return { success: true, refundAmount: purchase.ticket.price };
-    });
-  
-    return result;
+      } 
+    },
+  });
+
+  if (!purchase) throw new Error("Билет не найден или не принадлежит пользователю");
+
+    const offsetMs = new Date().getTimezoneOffset() * 60 * 1000;
+    const now = new Date(Date.now() - offsetMs);
+    
+  const refundDateCount = purchase.refundDateCount;
+  const { validFrom } = purchase.ticket;
+
+  if (!refundDateCount || !validFrom) {
+    throw new Error("Возврат невозможен: не указаны параметры возврата или дата начала действия билета");
   }
+
+  // Вычисляем дедлайн для возврата: validFrom - refundDateCount (в днях)
+  const refundDeadline = new Date(validFrom);
+  refundDeadline.setDate(refundDeadline.getDate() - refundDateCount);
+
+  if (now > refundDeadline) {
+    return {
+      success: false,
+      error: {
+        code: "REFUND_EXPIRED",
+        message: "Срок возврата истёк",
+      },
+    };
+  }
+
+  // Выполняем в транзакции
+  const result = await this.prisma.$transaction(async (tx) => {
+    // 1. Удаляем покупку
+    await tx.ticketPurchase.delete({
+      where: { id: purchaseId }
+    });
+
+    // 2. Обновляем выручку
+    await tx.events.update({
+      where: { id: purchase.ticket.event.id },
+      data: { 
+        revenue: { decrement: purchase.ticket.price } 
+      }
+    });
+
+    // 3. Снимаем флаг soldOut если нужно
+    const purchasesCount = purchase.ticket._count.purchases - 1;
+    if (purchasesCount < purchase.ticket.count) {
+      await tx.ticket.update({
+        where: { id: purchase.ticket.id },
+        data: { isSoldOut: false }
+      });
+    }
+
+    return { success: true, refundAmount: purchase.ticket.price };
+  });
+
+  return result;
+}
+
 }
