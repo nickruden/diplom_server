@@ -125,12 +125,16 @@ export class EventsService {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
 
+      end.setHours(26, 59, 59, 999);
+      console.log(start, end)
+
       where.tickets = {
         some: {
           validFrom: { lte: end },
           validTo: { gte: start },
+          salesEnd: { gt: now }
         },
-      };
+      }
     }
 
     if (filters.type !== 'online' && filters.city) {
@@ -168,7 +172,7 @@ export class EventsService {
           return !ticket.isSoldOut && isSalesActive && isValidDate;
         });
 
-        if (validTickets.length === 0) return null;
+        if (validTickets.length === 0) return [];
 
         const isOneDay = event.startTime.toDateString() === event.endTime.toDateString();
         let activeDate: Date | null = null;
@@ -176,13 +180,19 @@ export class EventsService {
         if (isOneDay) {
           activeDate = event.startTime;
         } else {
-          const futureValidDates = validTickets
+          const futureOrTodayValidDates = validTickets
+            .filter(t => {
+              return (
+                t.validFrom instanceof Date &&
+                t.salesEnd && new Date(t.salesEnd) > now
+              );
+            })
             .map(t => t.validFrom)
-            .filter((d): d is Date => d instanceof Date && d > now)
+            .filter((d): d is Date => d instanceof Date && d >= new Date(now.toDateString()))
             .sort((a, b) => a.getTime() - b.getTime());
 
           activeDate =
-            futureValidDates[0] ||
+            futureOrTodayValidDates[0] ||
             validTickets
               .map(t => t.validFrom)
               .filter((d): d is Date => d instanceof Date)
@@ -191,7 +201,7 @@ export class EventsService {
 
         return { ...event, activeDate };
       })
-      .filter((event): event is typeof events[number] & { activeDate: Date } => Boolean(event));
+      .filter((event): event is typeof events[number] & { activeDate: Date } => Boolean(event)).sort((a, b) => a.activeDate.getTime() - b.activeDate.getTime());
   }
 
   async getEventById(eventId: number) {
@@ -465,12 +475,16 @@ export class EventsService {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
 
+      end.setHours(26, 59, 59, 999);
+      console.log(start, end)
+
       where.tickets = {
         some: {
           validFrom: { lte: end },
           validTo: { gte: start },
+          salesEnd: { gt: now }
         },
-      };
+      }
     }
 
     if (filters.type !== 'online' && filters.city) {
@@ -517,13 +531,19 @@ export class EventsService {
         if (isOneDay) {
           activeDate = event.startTime;
         } else {
-          const futureValidDates = validTickets
+          const futureOrTodayValidDates = validTickets
+            .filter(t => {
+              return (
+                t.validFrom instanceof Date &&
+                t.salesEnd && new Date(t.salesEnd) > now
+              );
+            })
             .map(t => t.validFrom)
-            .filter((d): d is Date => d instanceof Date && d > now)
+            .filter((d): d is Date => d instanceof Date && d >= new Date(now.toDateString()))
             .sort((a, b) => a.getTime() - b.getTime());
 
           activeDate =
-            futureValidDates[0] ||
+            futureOrTodayValidDates[0] ||
             validTickets
               .map(t => t.validFrom)
               .filter((d): d is Date => d instanceof Date)
@@ -532,7 +552,7 @@ export class EventsService {
 
         return { ...event, activeDate };
       })
-      .filter((event): event is typeof events[number] & { activeDate: Date } => Boolean(event));
+      .filter((event): event is typeof events[number] & { activeDate: Date } => Boolean(event)).sort((a, b) => a.activeDate.getTime() - b.activeDate.getTime());
   }
 
   async createEvent(dto: CreateEventDto, userId: number) {
