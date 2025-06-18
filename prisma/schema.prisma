@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id                 Int                  @id @unique(map: "user_id_UNIQUE") @default(autoincrement()) @map("user_id")
+  email              String               @unique(map: "email_UNIQUE") @db.VarChar(50)
+  password           String               @db.VarChar(1000)
+  phone              String?              @unique(map: "phone_UNIQUE") @db.VarChar(18)
+  firstName          String               @map("first_name") @db.VarChar(100)
+  lastName           String               @map("surname") @db.VarChar(100)
+  avatar             String?              @db.VarChar(512)
+  organizerName      String               @unique(map: "organizer_name_UNIQUE") @map("organizer_name") @db.VarChar(100)
+  organizerDesc      String?              @map("organizer_desc") @db.VarChar(800)
+  organizerMedias    String?              @map("organizer_medias") @db.VarChar(500)
+  createdAt          DateTime             @default(now()) @map("created_At")  
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_At")  
+  organizedEvents    Events[]
+  favoriteEvents     FavoriteEvents[]    
+  following          UserFollower[]       @relation("following")
+  followers          UserFollower[] @relation("followers")
+  purchases          TicketPurchase[]
+  userNotifications  UserNotification[]   
+
+  @@map("users")
+}
+
+model UserFollower {
+  followId   Int      @id @unique(map: "follow_id_UNIQUE") @default(autoincrement()) @map("follow_id")
+  userId     Int      @map("users_user_id")
+  followerId Int      @map("follower_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  user       Users    @relation("following", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_followers_user_users1")
+  follower   Users @relation("followers", fields: [followerId], references: [id])
+  
+  @@index([userId], map: "fk_followers_user_users1_idx")
+  @@map("followers_user")
+}
+
+model Events {
+  id              Int               @unique(map: "event_id_UNIQUE") @default(autoincrement()) @map("event_id")
+  name            String            @map("event_name") @db.VarChar(100)
+  description     String             
+  endTime         DateTime          @map("end_time")  
+  startTime       DateTime          @map("start_time")
+  eventDailys     String?           
+  location        String            @db.VarChar(150)
+  onlineInfo String? @map("online_info")
+  status          String            @db.VarChar(50)
+  isPrime         Int               @map("is_prime") 
+  refundDateCount      Int?         @map("refund_date_Count")
+  isAutoRefund      Int             @map("auto_refund")  @default(0)
+  createdAt       DateTime          @default(now()) @map("created_ad") @db.Timestamp(0)
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  categoryId      Int               @map("categories_category_id")
+  organizerId     Int               @map("users_user_id")
+  revenue Decimal @default(0.0)
+  viewsEvent Int? @map("event_views")
+  notifications UserNotification[]
+  images          EventImage[]
+  schedules       EventSchedule[]
+  category        Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_events_categories1")
+  organizer       Users             @relation(fields: [organizerId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_events_users1")
+  favoriteEvents  FavoriteEvents[]  
+  tickets         Ticket[]
+
+  @@id([id, categoryId, organizerId])
+  @@index([categoryId], map: "fk_events_categories1_idx")
+  @@index([organizerId], map: "fk_events_users1_idx")
+  @@map("events")
+}
+
+model Category {
+  id     Int      @id @unique(map: "category_id_UNIQUE") @default(autoincrement()) @map("category_id")
+  name   String   @map("category_name") @db.VarChar(100)
+  slug   String   @unique(map: "category_slug_UNIQUE") @map("category_slug") @db.VarChar(45)
+  events Events[]
+
+  @@map("categories")
+}
+
+model EventImage {
+  id       Int    @unique(map: "event_image_id_UNIQUE") @default(autoincrement()) @map("event_image_id")
+  imageUrl String @map("image_url") @db.VarChar(512)
+  publicId String @unique @map("image_publicId") @db.VarChar(200)
+  isMain   Int    @map("is_main")  
+  eventId  Int    @map("events_event_id")
+  event    Events @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_event_images_events1")
+
+  @@id([id, eventId])
+  @@index([eventId], map: "fk_event_images_events1_idx")
+  @@map("event_images")
+}
+
+model EventSchedule {
+  id          Int      @unique(map: "schedule_id_UNIQUE") @default(autoincrement()) @map("schedule_id")
+  topic       String   @db.VarChar(400)
+  speakerName String   @map("speaker_name") @db.VarChar(200)
+  speakerDesc String   @map("speaker_desc") @db.VarChar(200)
+  startTime   DateTime @map("start_time")  
+  endTime     DateTime @map("end_time")  
+  description String?  @db.VarChar(500)
+  eventId     Int      @map("events_event_id")
+  event       Events   @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_event_schedule_events1")
+
+  @@id([id, eventId])
+  @@index([eventId], map: "fk_event_schedule_events1_idx")
+  @@map("event_schedule")
+}
+
+model Ticket {
+  id          Int              @unique(map: "ticket_id_UNIQUE") @default(autoincrement()) @map("ticket_id")
+  name        String           @map("ticket_name") @db.VarChar(100)
+  description String?          @map("ticket_description") @db.VarChar(200)
+  price       Int
+  salesStart  DateTime?        @map("sales_start")  
+  salesEnd    DateTime?        @map("sales_end")  
+  validFrom DateTime? 
+  validTo DateTime? 
+  refundDateCount      Int?         @map("refund_date_count")
+  count       Int
+  isSoldOut   Boolean              @map("is_soldout")  
+  eventId     Int              @map("events_event_id")
+  purchases   TicketPurchase[]
+  event       Events           @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tickets_events1")
+
+  @@id([id, eventId])
+  @@index([eventId], map: "fk_tickets_events1_idx")
+  @@map("tickets")
+}
+
+model TicketPurchase {
+  id           Int      @unique(map: "purchase_id_UNIQUE") @default(autoincrement()) @map("purchase_id")
+  purchaseTime DateTime @default(now()) @map("purchase_time")  
+  userId       Int      @map("users_user_id")
+  ticketId     Int      @map("tickets_ticket_id")
+  price Int 
+  validFrom DateTime? 
+  validTo DateTime? 
+  refundDateCount      Int?         @map("refund_date_count")
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_tickets_tickets1")
+  user         Users    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_tickets_users1")
+
+  @@id([id, userId, ticketId])
+  @@index([ticketId], map: "fk_purchase_tickets_tickets1_idx")
+  @@index([userId], map: "fk_purchase_tickets_users1_idx")
+  @@map("purchase_tickets")
+}
+
+model FavoriteEvents {
+  favoriteRecordId Int      @unique(map: "record_id_UNIQUE") @default(autoincrement()) @map("favoriteRecord_id")
+  userId           Int      @map("users_user_id")
+  eventId          Int      @map("events_event_id")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  event            Events   @relation(fields: [eventId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_has_events_events1")
+  user             Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_has_events_users1")
+
+  @@id([favoriteRecordId, userId, eventId])
+  @@index([eventId], map: "fk_users_has_events_events1_idx")
+  @@index([userId], map: "fk_users_has_events_users1_idx")
+  @@map("favorite_events")
+}
+
+model UserNotification {
+  notificationId Int      @unique(map: "notification_id_UNIQUE") @default(autoincrement()) @map("notification_id")
+  title          String   @db.VarChar(200)
+  message        String?  @db.VarChar(500)
+  type           String   @db.VarChar(100)
+  isRead         Int      @map("is_read")  
+  createdAt      DateTime @default(now()) @map("created_at")  
+  eventId   Int?
+  userId         Int   @map("user_id")
+  event     Events?   @relation(fields: [eventId], references: [id])
+  user           Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_notifications_users1")
+
+  @@id([notificationId, userId])
+  @@index([userId], map: "fk_user_notifications_users1_idx")
+  @@map("user_notifications")
+}
